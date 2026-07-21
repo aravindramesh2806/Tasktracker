@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Our Daily Tracker</title>
+<style>
+  :root{
+    --bg:#faf7f5; --card:#ffffff; --ink:#2c2c2c; --muted:#8a8a8a;
+    --line:#ececec; --accent:#e5687f; --done:#3fb27f;
+    --shadow:0 2px 12px rgba(0,0,0,.06);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--ink);padding:16px;max-width:760px;margin:0 auto;-webkit-tap-highlight-color:transparent}
+  h1{font-size:22px;margin:6px 0 2px;text-align:center}
+  .sub{text-align:center;color:var(--muted);font-size:13px;margin-bottom:16px}
+
+  .setup{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;
+    box-shadow:var(--shadow);text-align:center;margin-bottom:18px}
+  .setup h2{font-size:16px;margin:0 0 6px}
+  .setup p{font-size:13px;color:var(--muted);margin:0 0 14px}
+  .setup input{border:1px solid var(--line);border-radius:10px;padding:11px;font-size:15px;width:100%;max-width:280px;margin-bottom:10px}
+  .setup .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:11px 18px;font-size:15px;cursor:pointer}
+  .btn.ghost{background:#f0eef0;color:var(--ink)}
+
+  .app{display:none}
+  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+  .who{display:flex;gap:8px}
+  .who button{border:1px solid var(--line);background:var(--card);padding:7px 14px;border-radius:20px;font-size:13px;cursor:pointer;color:var(--muted)}
+  .who button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .share{border:1px solid var(--line);background:var(--card);padding:7px 14px;border-radius:20px;font-size:13px;cursor:pointer;color:var(--ink)}
+
+  .add{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;
+    box-shadow:var(--shadow);display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+  .add input[type=text]{flex:1 1 180px;border:1px solid var(--line);border-radius:10px;padding:11px;font-size:15px;min-width:0}
+  .add input[type=date]{border:1px solid var(--line);border-radius:10px;padding:11px;font-size:15px}
+  .add button{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:11px 18px;font-size:15px;cursor:pointer;flex:0 0 auto}
+
+  .filter{display:flex;gap:8px;justify-content:center;margin-bottom:16px}
+  .filter button{border:1px solid var(--line);background:var(--card);padding:6px 14px;border-radius:16px;font-size:13px;cursor:pointer;color:var(--muted)}
+  .filter button.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+  .daygroup{margin-bottom:20px}
+  .dayhead{font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:0 4px 8px;display:flex;justify-content:space-between}
+  .task{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px;margin-bottom:8px}
+  .task .check{width:24px;height:24px;border-radius:50%;border:2px solid var(--line);flex:0 0 auto;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff}
+  .task.done .check{background:var(--done);border-color:var(--done)}
+  .task .body{flex:1;min-width:0}
+  .task .txt{font-size:15px;word-break:break-word}
+  .task.done .txt{text-decoration:line-through;color:var(--muted)}
+  .task .meta{font-size:12px;color:var(--muted);margin-top:3px;display:flex;gap:8px;align-items:center}
+  .pill{font-size:11px;padding:2px 8px;border-radius:10px;color:#fff}
+  .badge{font-size:11px;padding:2px 8px;border-radius:10px;background:#f0eef0;color:var(--muted)}
+  .del{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;flex:0 0 auto;padding:4px;line-height:1}
+  .empty{text-align:center;color:var(--muted);padding:40px 0;font-size:14px}
+  .status{text-align:center;font-size:12px;color:var(--muted);margin-top:14px;min-height:16px}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;opacity:0;transition:opacity .25s;pointer-events:none}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+  <h1>💗 Our Daily Tracker</h1>
+  <div class="sub">A shared to-do list for two. Add a task, tap the circle when it's done.</div>
+
+  <!-- SETUP (first run) -->
+  <div class="setup" id="setup">
+    <h2>Set up your shared list</h2>
+    <p>Enter both names, then create the list. You'll get a link to send to each other — open that same link on any phone or computer to see the same tasks.</p>
+    <input type="text" id="p1" placeholder="Your name" />
+    <input type="text" id="p2" placeholder="Your partner's name" />
+    <div class="row">
+      <button class="btn" id="createBtn">Create our list</button>
+    </div>
+    <p style="margin-top:14px">Already have a link? Just open it — no setup needed.</p>
+  </div>
+
+  <!-- APP -->
+  <div class="app" id="app">
+    <div class="topbar">
+      <div class="who" id="whoBar"></div>
+      <button class="share" id="shareBtn">🔗 Copy share link</button>
+    </div>
+
+    <div class="add">
+      <input type="text" id="taskInput" placeholder="What needs doing?" />
+      <input type="date" id="dateInput" />
+      <button id="addBtn">Add</button>
+    </div>
+
+    <div class="filter" id="filterBar">
+      <button data-f="all" class="active">All</button>
+      <button data-f="pending">Pending</button>
+      <button data-f="done">Done</button>
+    </div>
+
+    <div id="list"></div>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  const API = "https://jsonblob.com/api/jsonBlob"; // free, no-signup shared JSON store
+  const $ = id => document.getElementById(id);
+  let state = { people:["",""], tasks:{} };
+  let blobId = null;
+  let me = null;
+  let filter = "all";
+  let pollTimer = null;
+  let saving = false, dirty = false;
+
+  // ---------- helpers ----------
+  function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1800); }
+  function getIdFromUrl(){ const h=location.hash.replace(/^#/,""); return h||null; }
+  function setStatus(s){ $("status").textContent=s; }
+
+  // ---------- backend ----------
+  async function createBlob(){
+    const res = await fetch(API,{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify(state)});
+    if(!res.ok) throw new Error("create failed ("+res.status+")");
+    const loc = res.headers.get("Location") || res.headers.get("location");
+    const id = loc ? loc.split("/").pop() : null;
+    if(!id) throw new Error("no id returned");
+    return id;
+  }
+  async function loadBlob(id){
+    const res = await fetch(API+"/"+id,{headers:{"Accept":"application/json"}});
+    if(!res.ok) throw new Error("load failed ("+res.status+")");
+    return await res.json();
+  }
+  async function saveBlob(){
+    if(!blobId) return;
+    if(saving){ dirty=true; return; }       // coalesce rapid saves
+    saving=true;
+    try{
+      const res = await fetch(API+"/"+blobId,{method:"PUT",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify(state)});
+      if(!res.ok) throw new Error("save failed ("+res.status+")");
+      setStatus("✓ Saved & synced · "+new Date().toLocaleTimeString());
+    }catch(e){ setStatus("⚠ "+e.message+" — will retry"); }
+    saving=false;
+    if(dirty){ dirty=false; saveBlob(); }
+  }
+
+  // Read-modify-write: pull latest, merge my change in, push. Reduces clobbering
+  // when both people edit at once.
+  async function mutate(fn){
+    try{
+      if(blobId){
+        const latest = await loadBlob(blobId).catch(()=>null);
+        if(latest && latest.tasks){ state.tasks = latest.tasks; if(latest.people) state.people=latest.people; }
+      }
+    }catch(e){}
+    fn();
+    render();
+    saveBlob();
+  }
+
+  // ---------- rendering ----------
+  function fmtDay(d){
+    const today=new Date().toISOString().slice(0,10);
+    const tmr=new Date(Date.now()+864e5).toISOString().slice(0,10);
+    const yst=new Date(Date.now()-864e5).toISOString().slice(0,10);
+    if(d===today) return "Today · "+d;
+    if(d===tmr) return "Tomorrow · "+d;
+    if(d===yst) return "Yesterday · "+d;
+    return new Date(d+"T00:00:00").toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric",year:"numeric"});
+  }
+  const colorFor = name => (state.people[0]===name) ? "#e5687f" : "#5b8def";
+
+  function render(){
+    // who bar
+    const wb=$("whoBar"); wb.innerHTML="";
+    state.people.forEach(p=>{
+      if(!p) return;
+      const b=document.createElement("button"); b.textContent=p;
+      if(p===me) b.classList.add("active");
+      b.onclick=()=>{ me=p; localStorage.setItem("tracker_me_"+blobId,p); render(); };
+      wb.appendChild(b);
+    });
+
+    const list=$("list");
+    let arr=Object.values(state.tasks||{});
+    if(filter==="pending") arr=arr.filter(t=>!t.done);
+    if(filter==="done") arr=arr.filter(t=>t.done);
+    if(arr.length===0){ list.innerHTML='<div class="empty">No tasks yet — add your first one above ✨</div>'; return; }
+
+    const byDate={}; arr.forEach(t=>{(byDate[t.date]=byDate[t.date]||[]).push(t);});
+    const dates=Object.keys(byDate).sort((a,b)=>b.localeCompare(a));
+    list.innerHTML="";
+    dates.forEach(d=>{
+      const items=byDate[d].sort((a,b)=>a.created-b.created);
+      const doneN=items.filter(t=>t.done).length;
+      const g=document.createElement("div"); g.className="daygroup";
+      const h=document.createElement("div"); h.className="dayhead";
+      h.innerHTML="<span>"+fmtDay(d)+"</span><span>"+doneN+"/"+items.length+" done</span>";
+      g.appendChild(h);
+      items.forEach(t=>{
+        const el=document.createElement("div"); el.className="task"+(t.done?" done":"");
+        el.innerHTML='<div class="check">'+(t.done?"✓":"")+'</div>'+
+          '<div class="body"><div class="txt"></div>'+
+          '<div class="meta"><span class="pill" style="background:'+colorFor(t.owner)+'">'+t.owner+'</span>'+
+          '<span class="badge">'+(t.done?"Done":"Pending")+'</span></div></div>'+
+          '<button class="del" title="Delete">×</button>';
+        el.querySelector(".txt").textContent=t.text;
+        el.querySelector(".check").onclick=()=>toggle(t.id);
+        el.querySelector(".del").onclick=()=>del(t.id);
+        g.appendChild(el);
+      });
+      list.appendChild(g);
+    });
+  }
+
+  // ---------- actions ----------
+  function addTask(){
+    const txt=$("taskInput").value.trim();
+    const date=$("dateInput").value||new Date().toISOString().slice(0,10);
+    if(!txt) return;
+    const id="t"+Date.now()+Math.floor(Math.random()*1000);
+    mutate(()=>{ state.tasks[id]={id,text:txt,date,done:false,owner:me,created:Date.now()}; });
+    $("taskInput").value="";
+  }
+  function toggle(id){ mutate(()=>{ if(state.tasks[id]) state.tasks[id].done=!state.tasks[id].done; }); }
+  function del(id){ mutate(()=>{ delete state.tasks[id]; }); }
+
+  // ---------- polling (live sync) ----------
+  function startPolling(){
+    if(pollTimer) clearInterval(pollTimer);
+    pollTimer=setInterval(async ()=>{
+      if(saving) return;
+      try{
+        const latest=await loadBlob(blobId);
+        if(latest){ state=latest; render(); }
+      }catch(e){}
+    },5000);
+  }
+
+  // ---------- boot ----------
+  async function enterApp(){
+    $("setup").style.display="none";
+    $("app").style.display="block";
+    $("dateInput").value=new Date().toISOString().slice(0,10);
+    me = localStorage.getItem("tracker_me_"+blobId) || state.people[0];
+    render();
+    startPolling();
+  }
+
+  async function init(){
+    // wire filter + inputs (safe to do early)
+    document.querySelectorAll("#filterBar button").forEach(b=>{
+      b.onclick=()=>{filter=b.dataset.f;
+        document.querySelectorAll("#filterBar button").forEach(x=>x.classList.remove("active"));
+        b.classList.add("active"); render();};
+    });
+    $("addBtn").onclick=addTask;
+    $("taskInput").addEventListener("keydown",e=>{if(e.key==="Enter")addTask();});
+    $("shareBtn").onclick=()=>{
+      const url=location.href;
+      navigator.clipboard.writeText(url).then(()=>toast("Link copied — send it to your partner 💌"))
+        .catch(()=>{ prompt("Copy this link and send it to your partner:",url); });
+    };
+    $("createBtn").onclick=async ()=>{
+      const p1=$("p1").value.trim()||"Me";
+      const p2=$("p2").value.trim()||"Partner";
+      $("createBtn").textContent="Creating…"; $("createBtn").disabled=true;
+      try{
+        state={people:[p1,p2],tasks:{}};
+        blobId=await createBlob();
+        location.hash=blobId;
+        me=p1; localStorage.setItem("tracker_me_"+blobId,p1);
+        enterApp();
+        toast("List created! Tap 🔗 to copy your share link.");
+      }catch(e){
+        $("createBtn").textContent="Create our list"; $("createBtn").disabled=false;
+        alert("Couldn't create the list (network issue). Please try again.\n\n"+e.message);
+      }
+    };
+
+    // If a list id is already in the URL, load it.
+    blobId=getIdFromUrl();
+    if(blobId){
+      $("setup").style.display="none";
+      setStatus("Loading your list…");
+      $("app").style.display="block";
+      try{
+        state=await loadBlob(blobId);
+        if(!state.tasks) state.tasks={};
+        if(!state.people) state.people=["Me","Partner"];
+        enterApp();
+      }catch(e){
+        $("app").style.display="none";
+        $("setup").style.display="block";
+        alert("Couldn't open that list link. It may have expired or the link is wrong.\n\n"+e.message);
+      }
+    }
+  }
+
+  // React if someone pastes a different link into the same tab
+  window.addEventListener("hashchange",()=>{ location.reload(); });
+
+  init();
+})();
+</script>
+</body>
+</html>
