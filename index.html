@@ -131,6 +131,7 @@
   <div class="top">
     <div class="brand"><span class="logo" id="logo">🏆</span><span>FitDuo</span></div>
     <div class="actions">
+      <button class="icbtn" id="notifBtn" title="Enable notifications">🔕</button>
       <button class="icbtn" id="themeBtn" title="Dark mode">🌙</button>
       <button class="icbtn" id="setBtn" title="Settings">⚙️</button>
     </div>
@@ -187,6 +188,7 @@ const ROOT = "fitduo/v1";   // shared data path — both of you read/write here
 
   let state={users:{},tasks:{},done:{}};
   let viewDate=todayStr(), expandedId=null, celebrated={}, booted=false, db=null, connected=false;
+  let myId=localStorage.getItem("fd_me")||null, notifOn=localStorage.getItem("fd_notify")==="on", prevAll={}, notifBooted=false;
 
   function todayStr(){return new Date().toISOString().slice(0,10);}
   function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2200);}
@@ -272,7 +274,36 @@ const ROOT = "fitduo/v1";   // shared data path — both of you read/write here
   }
   function labelFor(ds){if(ds===todayStr())return "Today, "+new Date(ds+"T00:00:00").toLocaleDateString(undefined,{month:"short",day:"numeric"});if(ds===addDays(todayStr(),-1))return "Yesterday";if(ds===addDays(todayStr(),1))return "Tomorrow";return new Date(ds+"T00:00:00").toLocaleDateString(undefined,{weekday:"long",month:"short",day:"numeric"});}
   function repeatLabel(t){if(t.repeat==="daily")return "Every day";if(t.repeat==="once")return "One-time · "+t.date;if(t.repeat==="weekly")return "Weekly · "+(t.weekdays||[]).map(d=>WD[d]).join(", ");return "";}
-  function render(){renderBoard();renderLead();renderNudge();renderList();booted=true;}
+  function render(){renderBoard();renderLead();renderNudge();renderList();checkNotify();booted=true;}
+
+  // ---------- notifications ----------
+  function updateBell(){const b=$("notifBtn");if(!b)return;const granted=("Notification"in window)&&Notification.permission==="granted";const on=notifOn&&granted;b.textContent=on?"🔔":"🔕";b.title=on?("Notifications on"+(myId?" ("+(state.users[myId]?state.users[myId].name:"")+")":"")):"Enable notifications";}
+  function pickIdentity(cb){
+    $("sheet").innerHTML='<h3>Who is using this device?</h3><p style="color:var(--muted);font-size:13px;margin:0 0 14px">So we only notify you when your partner finishes — not yourself.</p><div id="idw"></div>';
+    const w=$("idw");
+    usersArr().forEach(u=>{const btn=document.createElement("button");btn.className="ghost";btn.style.marginTop="8px";btn.innerHTML='<span class="dotm" style="display:inline-block;vertical-align:middle;margin-right:8px;background:'+u.color+'"></span>'+u.name;btn.onclick=()=>{myId=u.id;localStorage.setItem("fd_me",u.id);closeSheet();cb&&cb();};w.appendChild(btn);});
+    showSheet();
+  }
+  async function enableNotif(){
+    if(!("Notification"in window)){toast("This browser doesn't support notifications");return;}
+    if(!myId){pickIdentity(enableNotif);return;}
+    let perm=Notification.permission;
+    if(perm!=="granted"){try{perm=await Notification.requestPermission();}catch(e){}}
+    if(perm==="granted"){notifOn=true;localStorage.setItem("fd_notify","on");updateBell();toast("Notifications on 🔔 — you'll hear when your partner finishes");}
+    else if(perm==="denied"){toast("Notifications are blocked — enable them in your browser settings");}
+    else{toast("Notifications not enabled");}
+  }
+  function checkNotify(){
+    const today=todayStr();
+    usersArr().forEach(u=>{
+      const c=dayCounts(u.id,today);const all=c.total>0&&c.done>=c.total;
+      if(notifBooted && all && !prevAll[u.id] && u.id!==myId && notifOn && ("Notification"in window) && Notification.permission==="granted"){
+        try{new Notification("FitDuo 🏆",{body:u.name+" finished all their habits today! 🎉 Your turn 💪",tag:"fd-"+u.id+"-"+today});}catch(e){}
+      }
+      prevAll[u.id]=all;
+    });
+    notifBooted=true;
+  }
 
   // ---------- writes (Firebase) ----------
   function ref(path){return db.ref(ROOT+"/"+path);}
@@ -330,7 +361,11 @@ const ROOT = "fitduo/v1";   // shared data path — both of you read/write here
     showSheet();
   }
   function openSettings(){
-    $("sheet").innerHTML='<h3>Settings</h3><div id="uwrap"></div><button class="ghost" id="s_seed">↺ Add starter habits</button><button class="primary" id="s_done" style="margin-top:12px">Save & close</button>';
+    $("sheet").innerHTML='<h3>Settings</h3><div id="uwrap"></div>'+
+      '<div class="fld"><label>This device belongs to</label><div class="assignrow" id="s_me"></div></div>'+
+      '<button class="ghost" id="s_notif">🔔 Enable notifications on this device</button>'+
+      '<button class="ghost" id="s_seed" style="margin-top:8px">↺ Add starter habits</button>'+
+      '<button class="primary" id="s_done" style="margin-top:12px">Save & close</button>';
     const uw=$("uwrap");
     usersArr().forEach(u=>{
       const box=document.createElement("div");box.className="fld";
@@ -340,6 +375,9 @@ const ROOT = "fitduo/v1";   // shared data path — both of you read/write here
       box.querySelector("input").oninput=e=>{u.name=e.target.value||u.name;box.querySelector(".ava").textContent=ini(e.target.value);};
       uw.appendChild(box);
     });
+    const mw=$("s_me");
+    usersArr().forEach(u=>{const b=document.createElement("button");b.innerHTML='<span class="dotm" style="background:'+u.color+'"></span>'+u.name;if(u.id===myId)b.classList.add("sel");b.onclick=()=>{myId=u.id;localStorage.setItem("fd_me",u.id);mw.querySelectorAll("button").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");updateBell();};mw.appendChild(b);});
+    $("s_notif").onclick=enableNotif;
     $("s_seed").onclick=()=>{const t=Object.assign({},state.tasks);STARTERS.forEach((d,i)=>{if(tasksArr().some(x=>x.title===d[1]))return;const id="h"+Date.now()+i;t[id]={id,title:d[1],emoji:d[0],repeat:"daily",assign:"both",created:Date.now()+i};});ref("tasks").set(t);toast("Starter habits added");};
     $("s_done").onclick=()=>{saveUsers();closeSheet();};
     showSheet();
@@ -351,6 +389,7 @@ const ROOT = "fitduo/v1";   // shared data path — both of you read/write here
   function wire(){
     $("addFab").onclick=()=>openHabit(null);
     $("setBtn").onclick=openSettings;
+    $("notifBtn").onclick=enableNotif;
     $("themeBtn").onclick=()=>{localStorage.setItem("fd_theme",localStorage.getItem("fd_theme")==="dark"?"light":"dark");applyTheme();};
     $("prevD").onclick=()=>{viewDate=addDays(viewDate,-1);expandedId=null;renderList();};
     $("nextD").onclick=()=>{viewDate=addDays(viewDate,1);expandedId=null;renderList();};
@@ -364,7 +403,7 @@ const ROOT = "fitduo/v1";   // shared data path — both of you read/write here
   }
 
   function init(){
-    applyTheme();wire();render();
+    applyTheme();wire();updateBell();render();
     if(String(firebaseConfig.apiKey).indexOf("__FIREBASE")===0){
       $("cfgBanner").innerHTML='<div class="banner">⚙️ Firebase isn\'t configured yet. Finish the quick setup to enable real-time sync.</div>';
       setLive(false,"Not connected");
